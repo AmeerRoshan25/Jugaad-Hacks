@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Task Scheduler</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background-image: url("wp9473464.jpg"); /* Escape backslashes */
+      background-size: cover;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+      color: #333;
+      height: 100vh;
+    }
+
+    h1 {
+      color: #6cda75;
+    }
+
+    button {
+      padding: 10px;
+      background-color: #007BFF;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      margin: 10px;
+      border-radius: 20px;
+      transition: background-color 0.3s ease-in-out;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    .task {
+      border: 1px solid #ccc;
+      padding: 20px;
+      margin-bottom: 10px;
+      border-radius: 10px;
+      width: 100%;
+      box-sizing: border-box;
+      background-color: rgba(255, 255, 255, 0.8);
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: bold;
+    }
+
+    select, input[type="text"], input[type="number"], input[type="time"] {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 15px;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    th {
+      background-color: #007BFF;
+      color: white;
+    }
+
+    td {
+      background-color: #f2f2f2;
+    }
+
+    .error-message {
+      color: #FF0000;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>Task Scheduler</h1>
+  <div id="tasks"></div>
+  <button onclick="addTask()">Add Task</button>
+  <button onclick="scheduleTasks()">Schedule Tasks</button>
+  <script>
+    const tasksContainer = document.getElementById('tasks');
+    let tasks = [];
+
+    function addTask() {
+      const taskDiv = document.createElement('div');
+      taskDiv.classList.add('task');
+      taskDiv.innerHTML = `
+        <label for="task-name">Task Name:</label>
+        <select id="task-name" onchange="checkOthers(this)">
+          <option value="Study">Study</option>
+          <option value="Exercise">Exercise</option>
+          <option value="Meeting">Meeting</option>
+          <option value="Break">Break</option>
+          <option value="Walking">Walking</option>
+          <option value="Jumping">Jumping</option>
+          <option value="Others">Others</option>
+        </select>
+        <input type="text" id="other-task-name" style="display: none;" placeholder="Enter Task Name">
+        <label for="task-duration">Duration (in hours):</label>
+        <input type="number" id="task-duration" step="0.5" min="0.5" max="24">
+        <label for="task-start-time">Start Time:</label>
+        <input type="time" id="task-start-time">
+      `;
+      tasksContainer.appendChild(taskDiv);
+    }
+
+    function checkOthers(select) {
+      const otherTaskNameInput = document.getElementById('other-task-name');
+      if (select.value === 'Others') {
+        otherTaskNameInput.style.display = 'block';
+      } else {
+        otherTaskNameInput.style.display = 'none';
+      }
+    }
+
+    function scheduleTasks() {
+      tasks = [];
+      const taskDivs = document.querySelectorAll('.task');
+      taskDivs.forEach(taskDiv => {
+        const nameSelect = taskDiv.querySelector('#task-name');
+        let name = nameSelect.value;
+        if (name === 'Others') {
+          name = taskDiv.querySelector('#other-task-name').value || 'Others';
+        }
+        const duration = parseFloat(taskDiv.querySelector('#task-duration').value);
+        const startTime = taskDiv.querySelector('#task-start-time').value;
+        if (name && duration && startTime) {
+          tasks.push({ name, duration, startTime });
+        }
+      });
+
+      tasks.sort((a, b) => {
+        const timeA = new Date(`1970-01-01T${a.startTime}`);
+        const timeB = new Date(`1970-01-01T${b.startTime}`);
+        return timeA - timeB;
+      });
+
+      // Clear the tasks container before appending the table
+      tasksContainer.innerHTML = '';
+
+      const schedule = document.createElement('table');
+      schedule.innerHTML = `
+        <thead>
+          <tr>
+            <th>Task Name</th>
+            <th>Start Time</th>
+            <th>End Time</th>
+          </tr>
+        </thead>
+        <tbody>
+      `;
+      let currentHour = 0;
+      tasks.forEach(task => {
+        const startHour = parseFloat(task.startTime.split(':')[0]);
+        const startMinute = parseFloat(task.startTime.split(':')[1]) / 60;
+        const startDecimal = startHour + startMinute;
+        const endDecimal = startDecimal + task.duration;
+        const endHour = Math.floor(endDecimal);
+        const endMinute = Math.round((endDecimal - endHour) * 60);
+        const startTime = padZero(Math.floor(startDecimal)) + ':' + padZero(Math.round((startDecimal - Math.floor(startDecimal)) * 60));
+        const endTime = padZero(endHour) + ':' + padZero(endMinute);
+
+        // Check if the task can be scheduled
+        if (startDecimal >= currentHour) {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${task.name}</td>
+            <td>${startTime}</td>
+            <td>${endTime}</td>
+          `;
+          schedule.querySelector('tbody').appendChild(row);
+          currentHour = endDecimal;
+        } else {
+          const errorMessage = `Unable to schedule ${task.name}. It clashes with the previously scheduled tasks.`;
+          alert(errorMessage);
+          console.error(errorMessage);
+        }
+      });
+      schedule.innerHTML += '</tbody>';
+      tasksContainer.appendChild(schedule);
+    }
+
+    function padZero(num) {
+      return num < 10 ? '0' + num : num;
+    }
+  </script>
+</body>
+</html>
